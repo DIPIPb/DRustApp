@@ -4,7 +4,6 @@
     { "source": "/plugin/v2", "destination": "/api/ban/v2" },
     { "source": "/plugin/player-mute/:action", "destination": "/api/plugin/player-mute/:action" },
     { "source": "/plugin/:path*", "destination": "/api/plugin/:path*" },
-    { "source": "/queue-root/:path*", "destination": "/api/queue" },
-    { "source": "/((?!api/).*)", "destination": "/index.html" }
+    { "source": "/queue-root/:path*", "destination": "/api/queue" }
   ]
 }
