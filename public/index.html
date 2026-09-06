@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<title>RustApp Panel</title>
+<style>
+  body { font-family: system-ui, sans-serif; background:#111; color:#eee; margin:0; }
+  header { padding:16px 24px; background:#1a1a1a; display:flex; justify-content:space-between; align-items:center; }
+  nav { display:flex; gap:12px; padding:12px 24px; background:#181818; }
+  nav button { background:none; border:1px solid #333; color:#ccc; padding:8px 14px; border-radius:6px; cursor:pointer; }
+  nav button.active { background:#2d6cdf; color:#fff; border-color:#2d6cdf; }
+  main { padding:24px; }
+  table { width:100%; border-collapse:collapse; }
+  th, td { text-align:left; padding:8px 10px; border-bottom:1px solid #262626; font-size:14px; }
+  th { color:#888; font-weight:600; }
+  #loginBox { max-width:320px; margin:80px auto; background:#1a1a1a; padding:24px; border-radius:10px; }
+  #loginBox input { width:100%; box-sizing:border-box; margin:6px 0; padding:8px; border-radius:6px; border:1px solid #333; background:#111; color:#eee; }
+  #loginBox button { width:100%; padding:10px; margin-top:10px; background:#2d6cdf; border:none; border-radius:6px; color:#fff; cursor:pointer; }
+  .error { color:#e05252; font-size:13px; margin-top:6px; }
+  .pill { padding:2px 8px; border-radius:10px; background:#2a2a2a; font-size:12px; }
+</style>
+</head>
+<body>
+
+<div id="loginBox">
+  <h2>RustApp Panel</h2>
+  <input id="loginUser" placeholder="Логин">
+  <input id="loginPass" type="password" placeholder="Пароль">
+  <button onclick="login()">Войти</button>
+  <div class="error" id="loginError"></div>
+</div>
+
+<div id="app" style="display:none">
+  <header>
+    <div>RustApp Panel — <span id="whoami"></span></div>
+    <button onclick="logout()">Выйти</button>
+  </header>
+  <nav>
+    <button class="active" data-tab="servers" onclick="showTab('servers')">Серверы</button>
+    <button data-tab="chat" onclick="showTab('chat')">Чат</button>
+    <button data-tab="reports" onclick="showTab('reports')">Репорты</button>
+    <button data-tab="pairing" onclick="showTab('pairing')">Привязать сервер</button>
+  </nav>
+  <main>
+    <div id="tab-servers"></div>
+    <div id="tab-chat" style="display:none"></div>
+    <div id="tab-reports" style="display:none"></div>
+    <div id="tab-pairing" style="display:none">
+      <button onclick="createPairingCode()">Сгенерировать код привязки</button>
+      <p>Код действует один раз. Вставь его в консоль сервера/конфиг плагина: <code>rustapp.pair &lt;код&gt;</code> (или как настроено у тебя в команде плагина).</p>
+      <div id="pairingResult"></div>
+    </div>
+  </main>
+</div>
+
+<script>
+let token = localStorage.getItem('rustapp_token') || '';
+
+function authHeaders() {
+  return { 'x-auth-token': token, 'Content-Type': 'application/json' };
+}
+
+async function login() {
+  const username = document.getElementById('loginUser').value;
+  const password = document.getElementById('loginPass').value;
+  const r = await fetch('/api/admin/login', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ username, password }) });
+  const data = await r.json();
+  if (!data.ok) {
+    document.getElementById('loginError').textContent = 'Неверный логин или пароль';
+    return;
+  }
+  token = data.token;
+  localStorage.setItem('rustapp_token', token);
+  document.getElementById('whoami').textContent = data.username + ' (' + data.role + ')';
+  document.getElementById('loginBox').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  showTab('servers');
+}
+
+async function logout() {
+  await fetch('/api/admin/logout', { method: 'POST', headers: authHeaders() });
+  localStorage.removeItem('rustapp_token');
+  location.reload();
+}
+
+async function checkSession() {
+  if (!token) return;
+  const r = await fetch('/api/admin/me', { headers: authHeaders() });
+  if (!r.ok) { localStorage.removeItem('rustapp_token'); return; }
+  const data = await r.json();
+  document.getElementById('whoami').textContent = data.username + ' (' + data.role + ')';
+  document.getElementById('loginBox').style.display = 'none';
+  document.getElementById('app').style.display = 'block';
+  showTab('servers');
+}
+
+function showTab(name) {
+  ['servers','chat','reports','pairing'].forEach(t => {
+    document.getElementById('tab-'+t).style.display = (t === name) ? 'block' : 'none';
+  });
+  document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name));
+  if (name === 'servers') loadServers();
+  if (name === 'chat') loadChat();
+  if (name === 'reports') loadReports();
+}
+
+async function loadServers() {
+  const r = await fetch('/api/admin/servers', { headers: authHeaders() });
+  const rows = await r.json();
+  let html = '<table><tr><th>Хост</th><th>Порт</th><th>Онлайн</th><th>Версия</th><th>Последний сигнал</th></tr>';
+  for (const s of rows) {
+    html += `<tr><td>${s.hostname||'-'}</td><td>${s.port||'-'}</td><td><span class="pill">${s.online_count}</span></td><td>${s.version||'-'}</td><td>${s.last_seen_at ? new Date(s.last_seen_at).toLocaleString() : '-'}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('tab-servers').innerHTML = html;
+}
+
+async function loadChat() {
+  const r = await fetch('/api/admin/chat', { headers: authHeaders() });
+  const rows = await r.json();
+  let html = '<table><tr><th>Время</th><th>Steam ID</th><th>Кому</th><th>Команда</th><th>Текст</th></tr>';
+  for (const m of rows) {
+    html += `<tr><td>${new Date(m.created_at).toLocaleString()}</td><td>${m.steam_id||'-'}</td><td>${m.target_steam_id||'-'}</td><td>${m.is_team?'да':'нет'}</td><td>${m.text||''}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('tab-chat').innerHTML = html;
+}
+
+async function loadReports() {
+  const r = await fetch('/api/admin/reports', { headers: authHeaders() });
+  const rows = await r.json();
+  let html = '<table><tr><th>Время</th><th>От кого</th><th>На кого</th><th>Причина</th><th>Сообщение</th></tr>';
+  for (const rep of rows) {
+    html += `<tr><td>${new Date(rep.created_at).toLocaleString()}</td><td>${rep.initiator_steam_id||'-'}</td><td>${rep.target_steam_id||'-'}</td><td>${rep.reason||'-'}</td><td>${rep.message||''}</td></tr>`;
+  }
+  html += '</table>';
+  document.getElementById('tab-reports').innerHTML = html;
+}
+
+async function createPairingCode() {
+  const r = await fetch('/api/admin/create-pairing-code', { method: 'POST', headers: authHeaders() });
+  const data = await r.json();
+  document.getElementById('pairingResult').innerHTML = data.ok ? `<h3>Код: ${data.code}</h3>` : 'Ошибка';
+}
+
+checkSession();
+</script>
+</body>
+</html>
