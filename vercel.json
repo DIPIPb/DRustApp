@@ -2,8 +2,23 @@
   "version": 2,
   "rewrites": [
     { "source": "/plugin/v2", "destination": "/api/ban/v2" },
-    { "source": "/plugin/player-mute/:action", "destination": "/api/plugin/player-mute/:action" },
-    { "source": "/plugin/:path*", "destination": "/api/plugin/:path*" },
-    { "source": "/queue-root/:path*", "destination": "/api/queue" }
+    { "source": "/plugin/player-mute/:action", "destination": "/api/plugin/player-mute?action=:action" },
+    { "source": "/plugin/pair", "destination": "/api/plugin/core?action=pair" },
+    { "source": "/plugin/state", "destination": "/api/plugin/core?action=state" },
+    { "source": "/plugin/chat", "destination": "/api/plugin/core?action=chat" },
+    { "source": "/plugin/reports", "destination": "/api/plugin/core?action=reports" },
+    { "source": "/plugin/ban", "destination": "/api/plugin/core?action=ban" },
+    { "source": "/plugin/unban", "destination": "/api/plugin/core?action=unban" },
+    { "source": "/plugin/contact", "destination": "/api/plugin/core?action=contact" },
+    { "source": "/plugin/wipe", "destination": "/api/plugin/core?action=wipe" },
+    { "source": "/plugin/alerts", "destination": "/api/plugin/misc" },
+    { "source": "/plugin/custom-alert", "destination": "/api/plugin/misc" },
+    { "source": "/plugin/signage", "destination": "/api/plugin/misc" },
+    { "source": "/plugin/kills", "destination": "/api/plugin/misc" },
+    { "source": "/plugin/sleeping-bag", "destination": "/api/plugin/misc" },
+    { "source": "/plugin/", "destination": "/api/plugin/core?action=index" },
+    { "source": "/plugin", "destination": "/api/plugin/core?action=index" },
+    { "source": "/queue-root/:path*", "destination": "/api/queue" },
+    { "source": "/api/admin/:action", "destination": "/api/admin/index?action=:action" }
   ]
 }
